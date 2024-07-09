@@ -1,166 +1,199 @@
-<script>
-    const startButton = document.getElementById('startButton');
-    const stopButton = document.getElementById('stopButton');
-    const randomizeCheckbox = document.getElementById('randomizeCheckbox');
-    const timeAfterHoldInput = document.getElementById('timeAfterHold');
-    const stepBox = document.getElementById('stepBox');
-    let timeoutIds = [];
-    let synth = null;
-    let voices = [];
-    let currentStepIndex = 0;
-    let audioCtx = null; // AudioContext variable
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archery Training App</title>
+    <style>
+        /* Your existing CSS styles */
+    </style>
+</head>
+<body>
+    <h1>Archery Training App</h1>
+    <div class="buttons">
+        <button id="startButton">START</button>
+        <button id="stopButton" disabled>STOP</button>
+    </div>
+    <div class="checkbox-container">
+        <input type="checkbox" id="randomizeCheckbox">
+        <label for="randomizeCheckbox">Check to randomize</label>
+    </div>
+    <div class="time-inputs">
+        <label>
+            Time after Hold (ms):
+            <input type="number" id="timeAfterHold" value="3000" disabled>
+        </label>
+    </div>
+    <div class="step-box" id="stepBox"></div>
+    <script>
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const randomizeCheckbox = document.getElementById('randomizeCheckbox');
+        const timeAfterHoldInput = document.getElementById('timeAfterHold');
+        const stepBox = document.getElementById('stepBox');
+        let timeoutIds = [];
+        let synth = null;
+        let voices = [];
+        let currentStepIndex = 0;
 
-    const commands = [
-        { text: "take 2 deep breaths", delay: 3000 },
-        { text: "Set", delay: 5000 },
-        { text: "setup", delay: 5000 },
-        { text: "load", delay: 2000 },
-        { text: "anchor", delay: 2000 },
-        { text: "transfer", delay: 2000 },
-        { text: "Hold", delay: 3000 },
-    ];
+        const commands = [
+            { text: "take 2 deep breaths", delay: 3000 },
+            { text: "Set", delay: 5000 },
+            { text: "setup", delay: 5000 },
+            { text: "load", delay: 2000 },
+            { text: "anchor", delay: 2000 },
+            { text: "transfer", delay: 2000 },
+            { text: "Hold", delay: 3000 },
+        ];
 
-    function initializeSpeechSynthesis() {
-        if (!synth) {
-            synth = window.speechSynthesis;
-            if (synth.onvoiceschanged !== undefined) {
-                synth.onvoiceschanged = loadVoices;
-            } else {
-                loadVoices();
-            }
-        }
-    }
-
-    function loadVoices() {
-        voices = synth.getVoices();
-    }
-
-    function initializeAudioContext() {
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-    }
-
-    function handleUserInteraction() {
-        initializeSpeechSynthesis();
-        initializeAudioContext(); // Ensure AudioContext is initialized on user interaction
-    }
-
-    document.body.addEventListener('click', handleUserInteraction, { once: true });
-
-    startButton.addEventListener('click', () => {
-        startButton.disabled = true;
-        stopButton.disabled = false;
-        startSequence();
-    });
-
-    stopButton.addEventListener('click', stopSequence);
-
-    function startSequence() {
-        let delay = 0;
-
-        commands.forEach((command, index) => {
-            const stepElement = createStepElement(command.text);
-            stepBox.appendChild(stepElement);
-
-            delay += command.delay;
-            const timeoutId = setTimeout(() => {
-                markCurrentStep(index);
-                if (command.text === "Hold") {
-                    speak(command.text);
-                    setTimeout(() => {
-                        beepSequence(() => {
-                            makeDecision();
-                        });
-                    }, 1000); // Delay 1 second before starting the beep sequence
+        function initializeSpeechSynthesis() {
+            if (!synth) {
+                synth = window.speechSynthesis;
+                if (synth.onvoiceschanged !== undefined) {
+                    synth.onvoiceschanged = loadVoices;
                 } else {
-                    speak(command.text);
+                    loadVoices();
                 }
-            }, delay);
-            timeoutIds.push(timeoutId);
-        });
-    }
-
-    function stopSequence() {
-        timeoutIds.forEach(clearTimeout);
-        timeoutIds = [];
-        startButton.disabled = false;
-        stopButton.disabled = true;
-        synth.cancel();
-        clearSteps();
-    }
-
-    function speak(text) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        if (voices.length > 0) {
-            utterance.voice = voices.find(voice => voice.lang === 'en-US');
-        }
-        synth.speak(utterance);
-    }
-
-    function beep() {
-        if (audioCtx) {
-            const oscillator = audioCtx.createOscillator();
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime);
-            oscillator.connect(audioCtx.destination);
-            oscillator.start();
-            setTimeout(() => oscillator.stop(), 500);
-        } else {
-            console.error('AudioContext not initialized correctly.');
-        }
-    }
-
-    function beepSequence(callback) {
-        beep();
-        setTimeout(beep, 2000);
-        setTimeout(beep, 3000);
-        if (callback) {
-            setTimeout(callback, 3500); // Delay for the last beep to finish
-        }
-    }
-
-    function makeDecision() {
-        const timeAfterHold = 3000; // Fixed time after Hold command
-        setTimeout(() => {
-            let decision = "shoot";
-            if (randomizeCheckbox.checked) {
-                decision = Math.random() > 0.5 ? "shoot" : "let down";
             }
-            speak(decision);
-            if (decision === "shoot") {
-                setTimeout(() => {
-                    startButton.disabled = false;
-                    stopButton.disabled = true;
-                }, 2000);
+        }
+
+        function loadVoices() {
+            voices = synth.getVoices();
+        }
+
+        function initializeAudioContext() {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) {
+                return new AudioContext();
             } else {
-                setTimeout(() => {
-                    speak("get ready");
-                    startSequence();
-                }, 5000);
+                console.error('AudioContext not supported');
+                return null;
             }
-        }, timeAfterHold);
-    }
+        }
 
-    function createStepElement(text) {
-        const stepElement = document.createElement('div');
-        stepElement.textContent = text;
-        stepElement.classList.add('step');
-        return stepElement;
-    }
+        function handleUserInteraction() {
+            initializeSpeechSynthesis();
+            initializeAudioContext(); // Ensure AudioContext is initialized on user interaction
+        }
 
-    function markCurrentStep(index) {
-        const steps = document.querySelectorAll('.step');
-        steps.forEach((step, i) => {
-            if (i === index) {
-                step.classList.add('current-step');
-            } else {
-                step.classList.remove('current-step');
-            }
+        document.body.addEventListener('click', handleUserInteraction, { once: true });
+
+        startButton.addEventListener('click', () => {
+            startButton.disabled = true;
+            stopButton.disabled = false;
+            startSequence();
         });
-    }
 
-    function clearSteps() {
-        stepBox.innerHTML = '';
-    }
-</script>
+        stopButton.addEventListener('click', stopSequence);
+
+        function startSequence() {
+            let delay = 0;
+
+            commands.forEach((command, index) => {
+                const stepElement = createStepElement(command.text);
+                stepBox.appendChild(stepElement);
+
+                delay += command.delay;
+                const timeoutId = setTimeout(() => {
+                    markCurrentStep(index);
+                    if (command.text === "Hold") {
+                        speak(command.text);
+                        setTimeout(() => {
+                            beepSequence(() => {
+                                makeDecision();
+                            });
+                        }, 1000); // Delay 1 second before starting the beep sequence
+                    } else {
+                        speak(command.text);
+                    }
+                }, delay);
+                timeoutIds.push(timeoutId);
+            });
+        }
+
+        function stopSequence() {
+            timeoutIds.forEach(clearTimeout);
+            timeoutIds = [];
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            synth.cancel();
+            clearSteps();
+        }
+
+        function speak(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            if (voices.length > 0) {
+                utterance.voice = voices.find(voice => voice.lang === 'en-US');
+            }
+            synth.speak(utterance);
+        }
+
+        function beep() {
+            const audioCtx = initializeAudioContext();
+            if (audioCtx) {
+                const oscillator = audioCtx.createOscillator();
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime);
+                oscillator.connect(audioCtx.destination);
+                oscillator.start();
+                setTimeout(() => oscillator.stop(), 500);
+            } else {
+                console.error('AudioContext not initialized correctly.');
+            }
+        }
+
+        function beepSequence(callback) {
+            beep();
+            setTimeout(beep, 2000);
+            setTimeout(beep, 3000);
+            if (callback) {
+                setTimeout(callback, 3500); // Delay for the last beep to finish
+            }
+        }
+
+        function makeDecision() {
+            const timeAfterHold = parseInt(timeAfterHoldInput.value, 10);
+            setTimeout(() => {
+                let decision = "shoot";
+                if (randomizeCheckbox.checked) {
+                    decision = Math.random() > 0.5 ? "shoot" : "let down";
+                }
+                speak(decision);
+                if (decision === "shoot") {
+                    setTimeout(() => {
+                        startButton.disabled = false;
+                        stopButton.disabled = true;
+                    }, 2000);
+                } else {
+                    setTimeout(() => {
+                        speak("get ready");
+                        startSequence();
+                    }, 5000);
+                }
+            }, timeAfterHold);
+        }
+
+        function createStepElement(text) {
+            const stepElement = document.createElement('div');
+            stepElement.textContent = text;
+            stepElement.classList.add('step');
+            return stepElement;
+        }
+
+        function markCurrentStep(index) {
+            const steps = document.querySelectorAll('.step');
+            steps.forEach((step, i) => {
+                if (i === index) {
+                    step.classList.add('current-step');
+                } else {
+                    step.classList.remove('current-step');
+                }
+            });
+        }
+
+        function clearSteps() {
+            stepBox.innerHTML = '';
+        }
+    </script>
+</body>
+</html>
