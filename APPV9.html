@@ -88,10 +88,9 @@
         const randomizeCheckbox = document.getElementById('randomizeCheckbox');
         const stepBox = document.getElementById('stepBox');
         let timeoutIds = [];
-        let synth = window.speechSynthesis;
+        let synth = null;
         let voices = [];
         let currentStepIndex = 0;
-        let audioCtx = null;
 
         const commands = [
             { text: "take 2 deep breaths", delay: 3000 },
@@ -103,6 +102,17 @@
             { text: "Hold", delay: 3000 },
         ];
 
+        function initializeSpeechSynthesis() {
+            if (!synth) {
+                synth = window.speechSynthesis;
+                if (synth.onvoiceschanged !== undefined) {
+                    synth.onvoiceschanged = loadVoices;
+                } else {
+                    loadVoices();
+                }
+            }
+        }
+
         function loadVoices() {
             voices = synth.getVoices();
         }
@@ -110,24 +120,16 @@
         function initializeAudioContext() {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (AudioContext) {
-                audioCtx = new AudioContext();
-                audioCtx.onstatechange = () => {
-                    if (audioCtx.state === 'suspended') {
-                        audioCtx.resume();
-                    }
-                };
+                return new AudioContext();
             } else {
                 console.error('AudioContext not supported');
+                return null;
             }
         }
 
         function handleUserInteraction() {
+            initializeSpeechSynthesis();
             initializeAudioContext();
-            if (!synth) {
-                synth = window.speechSynthesis;
-                synth.onvoiceschanged = loadVoices;
-                loadVoices();
-            }
         }
 
         document.body.addEventListener('click', handleUserInteraction, { once: true });
@@ -170,21 +172,20 @@
             timeoutIds = [];
             startButton.disabled = false;
             stopButton.disabled = true;
-            if (synth) {
-                synth.cancel();
-            }
+            synth.cancel();
             clearSteps();
         }
 
         function speak(text) {
             const utterance = new SpeechSynthesisUtterance(text);
             if (voices.length > 0) {
-                utterance.voice = voices.find(voice => voice.name.includes("Female"));
+                utterance.voice = voices.find(voice => voice.name.includes("Google") && voice.name.includes("Female"));
             }
             synth.speak(utterance);
         }
 
         function beep() {
+            const audioCtx = initializeAudioContext();
             if (audioCtx) {
                 const oscillator = audioCtx.createOscillator();
                 oscillator.type = 'sine';
@@ -224,7 +225,7 @@
                         startSequence();
                     }, 5000);
                 }
-            }, 3000); // Time after Hold fixed to 3000ms
+            }, 1000); // Time after Hold fixed to 1000ms
         }
 
         function createStepElement(text) {
@@ -241,4 +242,13 @@
                     step.classList.add('current-step');
                 } else {
                     step.classList.remove('current-step');
-               
+                }
+            });
+        }
+
+        function clearSteps() {
+            stepBox.innerHTML = '';
+        }
+    </script>
+</body>
+</html>
