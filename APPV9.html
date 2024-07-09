@@ -53,17 +53,6 @@
         .checkbox-container label {
             color: #000;
         }
-        .time-inputs {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            margin-top: 20px;
-            color: #000;
-        }
-        .time-inputs label {
-            color: #000;
-        }
         .step-box {
             display: flex;
             flex-wrap: wrap;
@@ -92,23 +81,17 @@
         <input type="checkbox" id="randomizeCheckbox">
         <label for="randomizeCheckbox">Check to randomize</label>
     </div>
-    <div class="time-inputs">
-        <label>
-            Time after Hold (ms):
-            <input type="number" id="timeAfterHold" value="1000">
-        </label>
-    </div>
     <div class="step-box" id="stepBox"></div>
     <script>
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
         const randomizeCheckbox = document.getElementById('randomizeCheckbox');
-        const timeAfterHoldInput = document.getElementById('timeAfterHold');
         const stepBox = document.getElementById('stepBox');
         let timeoutIds = [];
         let synth = null;
         let voices = [];
         let currentStepIndex = 0;
+        let audioCtx = null;
 
         const commands = [
             { text: "take 2 deep breaths", delay: 3000 },
@@ -123,11 +106,8 @@
         function initializeSpeechSynthesis() {
             if (!synth) {
                 synth = window.speechSynthesis;
-                if (synth.onvoiceschanged !== undefined) {
-                    synth.onvoiceschanged = loadVoices;
-                } else {
-                    loadVoices();
-                }
+                synth.onvoiceschanged = loadVoices;
+                loadVoices();
             }
         }
 
@@ -138,16 +118,19 @@
         function initializeAudioContext() {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (AudioContext) {
-                return new AudioContext();
+                audioCtx = new AudioContext();
             } else {
                 console.error('AudioContext not supported');
-                return null;
             }
         }
 
         function handleUserInteraction() {
-            initializeSpeechSynthesis();
-            initializeAudioContext();
+            if (!synth) {
+                initializeSpeechSynthesis();
+            }
+            if (!audioCtx) {
+                initializeAudioContext();
+            }
         }
 
         document.body.addEventListener('click', handleUserInteraction, { once: true });
@@ -190,20 +173,21 @@
             timeoutIds = [];
             startButton.disabled = false;
             stopButton.disabled = true;
-            synth.cancel();
+            if (synth) {
+                synth.cancel();
+            }
             clearSteps();
         }
 
         function speak(text) {
             const utterance = new SpeechSynthesisUtterance(text);
             if (voices.length > 0) {
-                utterance.voice = voices.find(voice => voice.lang === 'en-US');
+                utterance.voice = voices.find(voice => voice.name.includes("Google") && voice.name.includes("Female"));
             }
             synth.speak(utterance);
         }
 
         function beep() {
-            const audioCtx = initializeAudioContext();
             if (audioCtx) {
                 const oscillator = audioCtx.createOscillator();
                 oscillator.type = 'sine';
@@ -218,15 +202,14 @@
 
         function beepSequence(callback) {
             beep();
+            setTimeout(beep, 1000);
             setTimeout(beep, 2000);
-            setTimeout(beep, 3000);
             if (callback) {
-                setTimeout(callback, 3500); // Delay for the last beep to finish
+                setTimeout(callback, 3000); // Delay for the last beep to finish
             }
         }
 
         function makeDecision() {
-            const timeAfterHold = parseInt(timeAfterHoldInput.value, 10);
             setTimeout(() => {
                 let decision = "shoot";
                 if (randomizeCheckbox.checked) {
@@ -244,7 +227,7 @@
                         startSequence();
                     }, 5000);
                 }
-            }, timeAfterHold);
+            }, 3000); // Time after Hold fixed to 3000ms
         }
 
         function createStepElement(text) {
