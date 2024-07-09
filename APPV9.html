@@ -88,7 +88,7 @@
         const randomizeCheckbox = document.getElementById('randomizeCheckbox');
         const stepBox = document.getElementById('stepBox');
         let timeoutIds = [];
-        let synth = null;
+        let synth = window.speechSynthesis;
         let voices = [];
         let currentStepIndex = 0;
         let audioCtx = null;
@@ -103,14 +103,6 @@
             { text: "Hold", delay: 3000 },
         ];
 
-        function initializeSpeechSynthesis() {
-            if (!synth) {
-                synth = window.speechSynthesis;
-                synth.onvoiceschanged = loadVoices;
-                loadVoices();
-            }
-        }
-
         function loadVoices() {
             voices = synth.getVoices();
         }
@@ -119,17 +111,22 @@
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (AudioContext) {
                 audioCtx = new AudioContext();
+                audioCtx.onstatechange = () => {
+                    if (audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                };
             } else {
                 console.error('AudioContext not supported');
             }
         }
 
         function handleUserInteraction() {
+            initializeAudioContext();
             if (!synth) {
-                initializeSpeechSynthesis();
-            }
-            if (!audioCtx) {
-                initializeAudioContext();
+                synth = window.speechSynthesis;
+                synth.onvoiceschanged = loadVoices;
+                loadVoices();
             }
         }
 
@@ -182,7 +179,7 @@
         function speak(text) {
             const utterance = new SpeechSynthesisUtterance(text);
             if (voices.length > 0) {
-                utterance.voice = voices.find(voice => voice.name.includes("Google") && voice.name.includes("Female"));
+                utterance.voice = voices.find(voice => voice.name.includes("Female"));
             }
             synth.speak(utterance);
         }
